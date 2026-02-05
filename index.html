@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>初中英语点读本 - The Secrets of Happiness</title>
+    <style>
+        :root { --main-brown: #8b4513; --bg-color: #fdf6e3; --text-color: #333; --highlight: #fff9db; }
+        body { font-family: 'PingFang SC', 'Helvetica Neue', sans-serif; background: var(--bg-color); padding: 20px; color: var(--text-color); }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        /* 控制面板 */
+        .controls { position: sticky; top: 10px; background: white; padding: 15px; border-radius: 12px; text-align: center; z-index: 100; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #eee; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; align-items: center; }
+        select, input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+        button { background: var(--main-brown); color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        button:hover { transform: scale(1.05); background: #5d2e0d; }
+
+        /* 内容样式 */
+        h1 { text-align: center; color: var(--main-brown); font-size: 28px; margin-bottom: 40px; }
+        .paragraph { margin-bottom: 50px; position: relative; }
+        .para-num { position: absolute; left: -40px; top: 10px; font-size: 24px; color: #d2b48c; font-style: italic; font-weight: bold; }
+
+        .sentence-wrap { display: block; margin-bottom: 25px; cursor: pointer; padding: 12px; border-radius: 10px; transition: 0.3s; }
+        .sentence-wrap:hover { background: var(--highlight); box-shadow: 2px 2px 10px rgba(0,0,0,0.05); }
+        
+        /* 单词排列 */
+        .en-line { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 8px; }
+        .word-group { display: flex; flex-direction: column; align-items: center; min-width: 20px; }
+        .word-group:hover .en-word { color: var(--main-brown); text-decoration: underline; }
+        .en-word { font-size: 1.25em; font-weight: 500; line-height: 1.2; }
+        .word-zh { font-size: 0.75em; color: #888; line-height: 1.2; margin-top: 2px; }
+        
+        /* 句子翻译 */
+        .sentence-zh { display: block; font-size: 1em; color: #5a7d5a; font-family: 'KaiTi', '楷体', serif; padding-left: 5px; border-left: 3px solid #e0e0e0; }
+
+        @media (max-width: 600px) { .para-num { position: static; display: block; margin-bottom: 10px; } }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <div>🗣️ <select id="voiceSelect"><option>正在加载语音包...</option></select></div>
+    <div>🐢 语速: <input type="range" id="rate" min="0.5" max="1.2" step="0.1" value="0.9"></div>
+    <button onclick="readFullText()">📖 朗读全文</button>
+</div>
+
+<div class="container">
+    <h1>The Secrets of Happiness</h1>
+    <div id="content"></div>
+</div>
+
+<script>
+    const synth = window.speechSynthesis;
+    const voiceSelect = document.getElementById('voiceSelect');
+    const rateInput = document.getElementById('rate');
+    let voices = [];
+
+    // 完整的文章数据与词典
+    const article = [
+        {
+            num: 1,
+            sentences: [
+                { en: "I put down Charlie and the Chocolate Factory.", zh: "我放下了《查理和巧克力工厂》。", words: {"I":"我","put":"放下","down":"放下","Charlie":"查理","and":"和","the":"这","Chocolate":"巧克力","Factory":"工厂"} },
+                { en: "But I kept going over the exciting story in my mind.", zh: "但我脑海里仍在反复回味那个令人兴奋的故事。", words: {"But":"但","kept":"保持","going":"继续","over":"反复","exciting":"兴奋的","story":"故事","in":"在","my":"我的","mind":"脑海"} },
+                { en: "The book was full of magic.", zh: "这本书充满了魔力。", words: {"The":"这","book":"书","was":"是","full":"充满","of":"的","magic":"魔力"} },
+                { en: "But Charlie's happy family was the most magical part of the story.", zh: "但查理幸福的家庭才是故事中最神奇的部分。", words: {"But":"但","Charlie's":"查理的","happy":"幸福的","family":"家庭","was":"是","the":"最","most":"最","magical":"神奇的","part":"部分","of":"的","story":"故事"} }
+            ]
+        },
+        {
+            num: 2,
+            sentences: [
+                { en: "Charlie's home was a small house at the side of a big town.", zh: "查理的家是小镇边上的一个小房子。", words: {"home":"家","was":"是","small":"小的","house":"房子","at":"在","side":"旁边","big":"大的","town":"城镇"} },
+                { en: "His family was very poor.", zh: "他的家庭非常贫穷。", words: {"His":"他的","family":"家庭","was":"是","very":"非常","poor":"贫穷"} },
+                { en: "His four grandparents stayed in the only bed in the house.", zh: "他的四位祖父母待在家里唯一的床上。", words: {"four":"四个","grandparents":"祖父母","stayed":"待在","in":"在","only":"唯一的","bed":"床"} },
+                { en: "The family never had enough food.", zh: "这个家庭从来没有足够的食物。", words: {"family":"家庭","never":"从不","had":"有","enough":"足够的","food":"食物"} },
+                { en: "They always ate watery cabbage soup for dinner.", zh: "他们晚餐总是喝稀薄的卷心菜汤。", words: {"They":"他们","always":"总是","ate":"吃","watery":"稀薄的","cabbage":"卷心菜","soup":"汤","for":"作为","dinner":"晚餐"} },
+                { en: "In winter, the freezing wind swept across the floor all night long.", zh: "冬天，刺骨的寒风整晚横扫地板。", words: {"In":"在","winter":"冬天","freezing":"刺骨的","wind":"寒风","swept":"横扫","across":"穿过","floor":"地板","all":"整个","night":"晚上","long":"长"} }
+            ]
+        },
+        {
+            num: 3,
+            sentences: [
+                { en: "To my surprise, the family were happy together.", zh: "令我惊讶的是，全家人在一起很幸福。", words: {"To":"令","my":"我的","surprise":"惊讶","family":"家人","were":"是","happy":"幸福","together":"在一起"} },
+                { en: "In the evenings, Charlie sat with his grandparents in bed and listened to their stories.", zh: "在晚上，查理和祖父母坐在床上听他们讲故事。", words: {"evenings":"晚上","sat":"坐","with":"和","grandparents":"祖父母","listened":"听","stories":"故事"} },
+                { en: "Charlie's parents often joined in.", zh: "查理的父母也经常加入进来。", words: {"parents":"父母","often":"经常","joined":"加入","in":"中"} },
+                { en: "Every night, the room became a happy place.", zh: "每天晚上，房间都变成了一个快乐的地方。", words: {"Every":"每","night":"晚","room":"房间","became":"变成","happy":"快乐","place":"地方"} },
+                { en: "The whole family forgot about their hungry and poor life.", zh: "全家人都忘记了他们饥饿贫困的生活。", words: {"whole":"整个","family":"家人","forgot":"忘记","about":"关于","hungry":"饥饿","poor":"贫穷","life":"生活"} }
+            ]
+        },
+        {
+            num: 4,
+            sentences: [
+                { en: "This touched me greatly.", zh: "这极大地触动了我。", words: {"This":"这","touched":"触动","me":"我","greatly":"极大地"} },
+                { en: "In some people's minds, happiness comes from things like money.", zh: "在一些人的心目中，幸福来自金钱之类的事物。", words: {"some":"一些","minds":"心目","happiness":"幸福","comes":"来自","from":"从","things":"事物","like":"像","money":"金钱"} },
+                { en: "But love, in fact, is the key to happiness.", zh: "但爱，事实上，是幸福的关键。", words: {"But":"但","love":"爱","in":"在","fact":"事实","is":"是","key":"关键","to":"对于"} },
+                { en: "Oscar Wilde once said, 'Keep love in your heart.'", zh: "奥斯卡·王尔德曾说过：‘把爱留在心里。’", words: {"said":"说","Keep":"保持","love":"爱","your":"你的","heart":"心"} },
+                { en: "A life without it is like a sunless garden...", zh: "没有爱的生活就像一座没有阳光的花园……", words: {"life":"生活","without":"没有","it":"它","like":"像","sunless":"无阳光","garden":"花园"} },
+                { en: "I think love is the most important one.", zh: "我认为爱是最重要的一个（原因）。", words: {"think":"认为","love":"爱","most":"最","important":"重要","one":"一个"} },
+                { en: "It can move us, change us and give us a life full of happiness.", zh: "它可以感动我们，改变我们，给我们一个充满幸福的生活。", words: {"move":"移动/感动","us":"我们","change":"改变","give":"给予","full":"充满"} }
+            ]
+        }
+    ];
+
+    // 初始化语音列表
+    function loadVoices() {
+        voices = synth.getVoices();
+        voiceSelect.innerHTML = voices
+            .filter(v => v.lang.includes('en'))
+            .map(v => `<option value="${v.name}">${v.name} (${v.lang.includes('GB')?'英音':'美音'})</option>`)
+            .join('');
+    }
+
+    // 渲染内容
+    function render() {
+        const content = document.getElementById('content');
+        article.forEach(p => {
+            let pDiv = document.createElement('div');
+            pDiv.className = 'paragraph';
+            pDiv.innerHTML = `<span class="para-num">${p.num}</span>`;
+            
+            p.sentences.forEach(s => {
+                let sDiv = document.createElement('div');
+                sDiv.className = 'sentence-wrap';
+                sDiv.onclick = () => speak(s.en);
+                
+                let wordsHtml = s.en.split(' ').map(rawWord => {
+                    let clean = rawWord.replace(/[.,'’!?;]/g, '');
+                    let zh = s.words[clean] || s.words[rawWord] || "";
+                    return `<div class="word-group" onclick="event.stopPropagation(); speak('${clean}')">
+                                <span class="en-word">${rawWord}</span>
+                                <span class="word-zh">${zh}</span>
+                            </div>`;
+                }).join('');
+                
+                sDiv.innerHTML = `<div class="en-line">${wordsHtml}</div><div class="sentence-zh">${s.zh}</div>`;
+                pDiv.appendChild(sDiv);
+            });
+            content.appendChild(pDiv);
+        });
+    }
+
+    function speak(text) {
+        synth.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        const voice = voices.find(v => v.name === voiceSelect.value);
+        if (voice) utter.voice = voice;
+        utter.rate = rateInput.value;
+        synth.speak(utter);
+    }
+
+    function readFullText() {
+        let allEn = article.flatMap(p => p.sentences.map(s => s.en)).join(' ');
+        speak(allEn);
+    }
+
+    window.onload = () => {
+        render();
+        loadVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+    };
+</script>
+</body>
+</html>
